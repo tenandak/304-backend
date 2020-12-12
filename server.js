@@ -6,9 +6,11 @@ let players = [];
 io.on('connection', function (socket) {
     console.log('A user connected: ' + socket.id);
 
+    var playerNumber = players.length + 1;
     let player = {
     	id: socket.id,
-    	number: players.length + 1
+    	name: "Player " + playerNumber,
+    	number: playerNumber
     }
 
     players.push(player);
@@ -19,13 +21,13 @@ io.on('connection', function (socket) {
         io.emit('PlayerRegistered', players);
     };
 
-    socket.on('dealCards', function (cards) {
-        io.emit('dealCards', cards);
+    socket.on('createDeck', function (cards) {
+        io.emit('createDeck', cards);
     });
 
-    socket.on('cardPlayed', function (gameObject, isPlayerA) {
-        io.emit('cardPlayed', gameObject, isPlayerA);
-    });
+    // socket.on('cardPlayed', function (gameObject, isPlayerA) {
+    //     io.emit('cardPlayed', gameObject, isPlayerA);
+    // });
 
     socket.on('disconnect', function () {
         console.log('A user disconnected: ' + socket.id);
