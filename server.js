@@ -29,6 +29,10 @@ io.on('connection', function (socket) {
         io.emit('promptBid', id, minimum, isForced, canAskPartner, bidList, title);
     });
 
+    socket.on('selectTrump', function (id, bid) {
+        io.emit('selectTrump', id, bid);
+    });
+
     socket.on('disconnect', function () {
         console.log('A user disconnected: ' + socket.id);
         players = players.filter(player => player !== socket.id);
