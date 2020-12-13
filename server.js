@@ -25,9 +25,9 @@ io.on('connection', function (socket) {
         io.emit('createDeck', cards);
     });
 
-    // socket.on('cardPlayed', function (gameObject, isPlayerA) {
-    //     io.emit('cardPlayed', gameObject, isPlayerA);
-    // });
+    socket.on('promptBid', function (id, minimum, isForced, canAskPartner, bidList, title) {
+        io.emit('promptBid', id, minimum, isForced, canAskPartner, bidList, title);
+    });
 
     socket.on('disconnect', function () {
         console.log('A user disconnected: ' + socket.id);
