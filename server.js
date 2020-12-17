@@ -37,6 +37,10 @@ io.on('connection', function (socket) {
         io.emit('trumpSelected', id, cardId);
     });
 
+    socket.on('playerMoved', function (id, cardId) {
+        io.emit('playerMoved', id, cardId);
+    });
+
     socket.on('disconnect', function () {
         console.log('A user disconnected: ' + socket.id);
         players = players.filter(player => player !== socket.id);
