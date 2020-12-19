@@ -41,6 +41,15 @@ io.on('connection', function (socket) {
         io.emit('playerMoved', id, cardId);
     });
 
+    // socket.on('playComplete', function (winningPlayerId) {
+    //     io.emit('playComplete', winningPlayerId);
+    // });
+
+    socket.on('nextPlay', function (startingPlayerId) {
+        io.emit('nextPlay', startingPlayerId);
+    });
+
+
     socket.on('disconnect', function () {
         console.log('A user disconnected: ' + socket.id);
         players = players.filter(player => player !== socket.id);
