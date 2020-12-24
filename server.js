@@ -25,16 +25,16 @@ io.on('connection', function (socket) {
         io.emit('createDeck', cards);
     });
 
-    socket.on('promptBid', function (id, minimum, isForced, canAskPartner, bidList, title) {
-        io.emit('promptBid', id, minimum, isForced, canAskPartner, bidList, title);
+    socket.on('promptBid', function (id, minimum, isForced, canAskPartner, bidList, title, keepPrevBid) {
+        io.emit('promptBid', id, minimum, isForced, canAskPartner, bidList, title, keepPrevBid);
     });
 
-    socket.on('selectTrump', function (id, bid) {
-        io.emit('selectTrump', id, bid);
+    socket.on('selectTrump', function (id, bid, bidList) {
+        io.emit('selectTrump', id, bid, bidList);
     });
 
-    socket.on('trumpSelected', function (id, cardId) {
-        io.emit('trumpSelected', id, cardId);
+    socket.on('trumpSelected', function (id, cardId, beginRound) {
+        io.emit('trumpSelected', id, cardId, beginRound);
     });
 
     socket.on('playerMoved', function (id, cardId) {
