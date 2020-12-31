@@ -2,6 +2,7 @@ const server = require('express')();
 const http = require('http').createServer(server);
 const io = require('socket.io')(http);
 let players = [];
+let isGamePaused = false;
 
 io.on('connection', function (socket) {
     console.log('A user connected: ' + socket.id);
@@ -14,11 +15,11 @@ io.on('connection', function (socket) {
     }
 
     players.push(player);
-    console.log('PLAYERS:', players);
 
     if (players.length > 0 && players.length <= 4) {
-    	console.log('EMITTING BACK TO CLIENT THE #', players.length);
-        io.emit('PlayerRegistered', players);
+        io.emit('playerRegistered', players);
+    } else if (players.length > 4) {
+        io.emit('gameFull', players);
     };
 
     socket.on('createDeck', function (cards) {
@@ -41,19 +42,17 @@ io.on('connection', function (socket) {
         io.emit('playerMoved', id, cardId);
     });
 
-    // socket.on('playComplete', function (winningPlayerId) {
-    //     io.emit('playComplete', winningPlayerId);
-    // });
-
-    socket.on('nextPlay', function (startingPlayerId) {
-        io.emit('nextPlay', startingPlayerId);
+    socket.on('nextPlay', function (startingPlayerId, isTrumpKnown) {
+        io.emit('nextPlay', startingPlayerId, isTrumpKnown);
     });
-
 
     socket.on('disconnect', function () {
-        console.log('A user disconnected: ' + socket.id);
-        players = players.filter(player => player !== socket.id);
+        players = players.filter(player => player.id !== socket.id);
+        if (players.length < 4) {
+            io.emit('removePlayer', socket.id);
+        }
     });
+
 });
 
 http.listen(3000, function () {
