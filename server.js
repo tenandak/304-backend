@@ -1,26 +1,27 @@
 const server = require('express')();
 const http = require('http').createServer(server);
 const io = require('socket.io')(http);
-let players = [];
-let isGamePaused = false;
+let players = [null, null, null, null];
 
 io.on('connection', function (socket) {
     console.log('A user connected: ' + socket.id);
-
-    var playerNumber = players.length + 1;
-    let player = {
-    	id: socket.id,
-    	name: "Player " + playerNumber,
-    	number: playerNumber
+    let player;
+    for (let i = 0; i < players.length; i++) {
+        if (players[i] === null) {
+            player = {
+                id: socket.id,
+                name: "Player " + (i + 1),
+                number: i
+            };
+            players[i] = player;
+            break;
+        }
     }
-
-    players.push(player);
-
-    if (players.length > 0 && players.length <= 4) {
-        io.emit('playerRegistered', players);
-    } else if (players.length > 4) {
+    if (player) {
+        io.emit('playerJoined', players);
+    } else {
         io.emit('gameFull', players);
-    };
+    }
 
     socket.on('createDeck', function (cards) {
         io.emit('createDeck', cards);
@@ -47,9 +48,11 @@ io.on('connection', function (socket) {
     });
 
     socket.on('disconnect', function () {
-        players = players.filter(player => player.id !== socket.id);
-        if (players.length < 4) {
-            io.emit('removePlayer', socket.id);
+        for (let i = 0; i < players.length; i++) {
+            if (players[i] && players[i].id === socket.id) {
+                io.emit('removePlayer', socket.id);
+                players[i] = null;
+            }
         }
     });
 
