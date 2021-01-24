@@ -1,18 +1,17 @@
 const server = require('express')();
 const http = require('http').createServer(server);
-// const io = require('socket.io')(http);
+const PORT = process.env.PORT || 3000;
 
-const io = require('socket.io')(http, {
-  serveClient: false,
-  // below are engine.IO options
-  origins: '*:*',
-  transports: ['polling'],
-  pingInterval: 10000,
-  pingTimeout: 5000,
-  cookie: false
-});
-
-
+const io = require('socket.io')(http);
+// const io = require('socket.io')(http, {
+//   serveClient: false,
+//   // below are engine.IO options
+//   origins: '*:*',
+//   transports: ['polling'],
+//   pingInterval: 10000,
+//   pingTimeout: 5000,
+//   cookie: false
+// });
 
 
 let players = [null, null, null, null];
@@ -72,6 +71,6 @@ io.on('connection', function (socket) {
 
 });
 
-http.listen(3000, function () {
+http.listen(PORT, function () {
     console.log('Server started!');
 });
