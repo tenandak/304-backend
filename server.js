@@ -1,6 +1,20 @@
 const server = require('express')();
 const http = require('http').createServer(server);
-const io = require('socket.io')(http);
+// const io = require('socket.io')(http);
+
+const io = require('socket.io')(http, {
+  serveClient: false,
+  // below are engine.IO options
+  origins: '*:*',
+  transports: ['polling'],
+  pingInterval: 10000,
+  pingTimeout: 5000,
+  cookie: false
+});
+
+
+
+
 let players = [null, null, null, null];
 
 io.on('connection', function (socket) {
