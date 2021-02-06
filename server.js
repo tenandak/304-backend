@@ -1,48 +1,60 @@
-const server = require('express')();
-const http = require('http').createServer(server);
+import Game from './game.class.js';
+import Player from './player.class.js';
+
+import * as socketio from 'socket.io';
+import express from 'express';
+import { createServer } from 'http';
+
+
+const app = express(); 
+const server = createServer(app); 
+const io = new socketio.Server(server);
 const PORT = process.env.PORT || 3000;
 
-const io = require('socket.io')(http);
-// const io = require('socket.io')(http, {
-//   serveClient: false,
-//   // below are engine.IO options
-//   origins: '*:*',
-//   transports: ['polling'],
-//   pingInterval: 10000,
-//   pingTimeout: 5000,
-//   cookie: false
-// });
-
-
+let game = null;
 let players = [null, null, null, null];
+let playerFirstHalfDealtCount = 0;
 
 io.on('connection', function (socket) {
     console.log('A user connected: ' + socket.id);
     let player;
     for (let i = 0; i < players.length; i++) {
         if (players[i] === null) {
-            player = {
-                id: socket.id,
-                name: "Player " + (i + 1),
-                number: i
-            };
+            player = new Player(socket.id, i);
             players[i] = player;
             break;
         }
     }
     if (player) {
         io.emit('playerJoined', players);
+        const numberOfPlayers = players.filter((p) => p != null).length; 
+        if (numberOfPlayers === 4 && game === null) {
+            game = new Game(players);
+            io.emit('startGame', game);
+        }
     } else {
         io.emit('gameFull', players);
     }
 
-    socket.on('createDeck', function (cards) {
-        io.emit('createDeck', cards);
+    socket.on('firstHalfDealt', function (playerId) {
+        playerFirstHalfDealtCount++;
+        // let player = game.players.find(p => p.id == playerId);
+        // player.setIsFirstHalfDealt(true);
+
+        // const count = game.players.filter(pl => pl.getIsFirstHalfDealt()).length;
+        if (playerFirstHalfDealtCount === 4) {
+            // players.forEach(p => {
+            //     p.setIsFirstHalfDealt(false)
+            // });
+            playerFirstHalfDealtCount = 0;
+            let round = game.getActiveRound();
+            round.beginFirstBid(socket, io);
+        }
     });
 
-    socket.on('promptBid', function (id, minimum, isForced, canAskPartner, bidList, title, keepPrevBid) {
-        io.emit('promptBid', id, minimum, isForced, canAskPartner, bidList, title, keepPrevBid);
-    });
+    // socket.on('promptBid', function (id, minimum, isForced, canAskPartner, bidList, title, keepPrevBid) {
+    //     io.emit('promptBid', id, minimum, isForced, canAskPartner, bidList, title, keepPrevBid);
+    // });
 
     socket.on('selectTrump', function (id, bid, bidList) {
         io.emit('selectTrump', id, bid, bidList);
@@ -67,10 +79,11 @@ io.on('connection', function (socket) {
                 players[i] = null;
             }
         }
+        game = null;
     });
 
 });
 
-http.listen(PORT, function () {
-    console.log('Server started!');
+server.listen(PORT, function () {
+    console.log('Listening on PORT', PORT);
 });
