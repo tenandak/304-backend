@@ -146,7 +146,11 @@ export function sanitizeMatchForClient(match) {
 
   if (round.trump) {
     if (round.trump.card) {
+      const cardId = round.trump.card.id || null;
       round.trump.card = { hidden: true };
+      if (cardId) {
+        round.trump.hiddenCardId = cardId;
+      }
     }
   }
 
