@@ -1,6 +1,6 @@
 import { createTeam, createMatch, createEmptyRound } from './gameState.js';
 import { createDeck, shuffleDeck } from './deck304.js';
-import { placeFirstPassBid, placeOverrideBid } from './bidding304.js';
+import { placeFirstPassBid, placeSecondPassBid } from './bidding304.js';
 import { selectTrump, openTrump } from './trump304.js';
 import { startTrick, playCard as playTrickCard, resolveTrick } from './tricks304.js';
 import { applyRoundScoring } from './scoring304.js';
@@ -107,9 +107,9 @@ export function applyAction(match, playerId, action = {}) {
       // Pass payload through (supports bid, partner, pass)
       updatedRound = placeFirstPassBid(updatedRound, updatedMatch, playerId, payload);
       break;
-    case 'PLACE_OVERRIDE_BID':
+    case 'PLACE_SECOND_PASS_BID':
       {
-        const result = placeOverrideBid(updatedRound, updatedMatch, playerId, payload);
+        const result = placeSecondPassBid(updatedRound, updatedMatch, playerId, payload);
         updatedRound = result.round;
         updatedMatch = result.match;
       }
@@ -173,30 +173,15 @@ export function applyAction(match, playerId, action = {}) {
     // Determine next phase: optional 250 bidding if needed, otherwise move to tricks with hidden trump.
     const nextRound =
       updatedRound.bidding && updatedRound.bidding.highestBid != null && updatedRound.bidding.highestBid < 250
-        ? (() => {
-            const bidderId = updatedRound.bidding.bidderId;
-            const optionalOrder = Array.from({ length: updatedMatch.players.length }, (_, idx) => {
-              const seat = (updatedRound.startingPlayerIndex + idx) % updatedMatch.players.length;
-              return updatedMatch.players.find((p) => p.seatIndex === seat);
-            })
-              .filter(Boolean)
-              .filter((p) => p.id !== bidderId)
-              .map((p) => p.id);
-
-            return {
-              ...updatedRound,
-              deck: remainingDeck,
-              phase: 'second-pass-bidding',
-              bidding: {
-                ...(updatedRound.bidding || {}),
-                optionalPhase: 'optional-250',
-                optionalOrder,
-                optionalTurnIndex: 0,
-                optionalCurrentTurnPlayerId: optionalOrder[0] || null,
-                optionalPassedPlayerIds: [],
-              },
-            };
-          })()
+        ? {
+            ...updatedRound,
+            deck: remainingDeck,
+            phase: 'second-pass-bidding',
+            bidding: {
+              ...(updatedRound.bidding || {}),
+              secondPassPassedPlayerIds: [],
+            },
+          }
         : {
             ...updatedRound,
             deck: remainingDeck,

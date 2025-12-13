@@ -119,27 +119,29 @@ export function sanitizeMatchForClient(match) {
 
   if (round.phase === 'second-pass-bidding') {
     const bidding = round.bidding || {};
-    const currentTurnPlayerId = bidding.optionalCurrentTurnPlayerId || null;
-    const eligiblePlayerIds = bidding.optionalOrder || [];
-    const passedPlayerIds = bidding.optionalPassedPlayerIds || [];
+    const highestBidderId = bidding.bidderId || null;
+    const passed = bidding.secondPassPassedPlayerIds || [];
 
     const allowedActionsByPlayerId = {};
     cloned.players.forEach((p) => {
-      if (p.id === currentTurnPlayerId) {
-        allowedActionsByPlayerId[p.id] = ['bid250', 'pass'];
-      } else {
+      if (p.id === highestBidderId) {
         allowedActionsByPlayerId[p.id] = [];
+      } else if (passed.includes(p.id)) {
+        allowedActionsByPlayerId[p.id] = [];
+      } else {
+        allowedActionsByPlayerId[p.id] = ['bid250', 'pass'];
       }
     });
 
-    round.optionalBiddingOptions = {
-      currentTurnPlayerId,
-      eligiblePlayerIds,
-      passedPlayerIds,
+    round.biddingOptions = {
+      mode: 'second-pass-bidding',
+      highestBid: bidding.highestBid ?? null,
+      highestBidderId,
+      passedPlayerIds: passed,
       allowedActionsByPlayerId,
-      highestBid: bidding.highestBid,
-      bidderId: bidding.bidderId,
     };
+
+    delete round.optionalBiddingOptions;
   }
 
   if (round.trump) {
