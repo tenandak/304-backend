@@ -205,27 +205,79 @@ export function finishFirstPassBidding(round) {
   };
 }
 
-export function placeOverrideBid(round, playerId, { value } = {}) {
-  if (!OVERRIDE_ALLOWED.includes(value)) {
+export function placeOverrideBid(round, match, playerId, payload = {}) {
+  if (round.phase !== 'second-pass-bidding') {
+    throw new Error('Not in optional bidding phase');
+  }
+
+  const { type, value } = payload;
+  if (!['bid', 'pass'].includes(type)) {
+    throw new Error('Invalid override bid type');
+  }
+  if (type === 'bid' && value !== 250) {
     throw new Error('Invalid override bid value');
   }
 
   const bidding = round.bidding || {};
-  const currentHighest = bidding.highestBid;
+  const optionalOrder = bidding.optionalOrder || [];
+  const optionalCurrent = bidding.optionalCurrentTurnPlayerId || null;
 
-  if (currentHighest != null && value <= currentHighest) {
-    return round;
+  if (!optionalOrder.includes(playerId)) {
+    throw new Error('Player not eligible to override');
+  }
+  if (optionalCurrent && optionalCurrent !== playerId) {
+    throw new Error('Not your turn to override bid');
   }
 
-  const bids = [...(bidding.bids || []), { playerId, type: 'override', value }];
-  return {
+  // Handle override bid to 250
+  if (type === 'bid') {
+    let updatedPlayers = match.players;
+    // If a trump card was already selected, return it to previous bidder's hand.
+    const prevBidderId = bidding.bidderId;
+    const trumpCard = round.trump?.card || null;
+    if (prevBidderId && trumpCard) {
+      updatedPlayers = match.players.map((p) => {
+        if (p.id !== prevBidderId) return p;
+        return { ...p, hand: [...(p.hand || []), trumpCard] };
+      });
+    }
+
+    const updatedRound = {
+      ...round,
+      trump: { suit: null, card: null, revealed: false },
+      phase: 'trump-selection',
+      bidding: {
+        ...(round.bidding || {}),
+        highestBid: 250,
+        bidderId: playerId,
+        finalBidValue: 250,
+        phase: 'done',
+      },
+    };
+
+    const updatedMatch = { ...match, players: updatedPlayers };
+    return { round: updatedRound, match: updatedMatch };
+  }
+
+  // Handle pass
+  const passed = new Set(bidding.optionalPassedPlayerIds || []);
+  passed.add(playerId);
+  const passedList = Array.from(passed);
+
+  const nextTurnIndex = (bidding.optionalTurnIndex || 0) + 1;
+  const optionalDone = nextTurnIndex >= optionalOrder.length;
+
+  const updatedRound = {
     ...round,
+    phase: optionalDone ? 'tricks-hidden-trump' : round.phase,
     bidding: {
-      ...bidding,
-      bids,
-      highestBid: value,
-      bidderId: playerId,
-      finalBidValue: value,
+      ...(round.bidding || {}),
+      optionalPassedPlayerIds: passedList,
+      optionalTurnIndex: nextTurnIndex,
+      optionalCurrentTurnPlayerId: optionalDone ? null : optionalOrder[nextTurnIndex] || null,
+      phase: optionalDone ? 'done' : round.bidding?.phase,
     },
   };
+
+  return { round: updatedRound, match };
 }

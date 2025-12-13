@@ -117,6 +117,31 @@ export function sanitizeMatchForClient(match) {
     };
   }
 
+  if (round.phase === 'second-pass-bidding') {
+    const bidding = round.bidding || {};
+    const currentTurnPlayerId = bidding.optionalCurrentTurnPlayerId || null;
+    const eligiblePlayerIds = bidding.optionalOrder || [];
+    const passedPlayerIds = bidding.optionalPassedPlayerIds || [];
+
+    const allowedActionsByPlayerId = {};
+    cloned.players.forEach((p) => {
+      if (p.id === currentTurnPlayerId) {
+        allowedActionsByPlayerId[p.id] = ['bid250', 'pass'];
+      } else {
+        allowedActionsByPlayerId[p.id] = [];
+      }
+    });
+
+    round.optionalBiddingOptions = {
+      currentTurnPlayerId,
+      eligiblePlayerIds,
+      passedPlayerIds,
+      allowedActionsByPlayerId,
+      highestBid: bidding.highestBid,
+      bidderId: bidding.bidderId,
+    };
+  }
+
   if (round.trump) {
     if (round.trump.card) {
       round.trump.card = { hidden: true };

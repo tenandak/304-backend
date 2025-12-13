@@ -108,11 +108,18 @@ export function applyAction(match, playerId, action = {}) {
       updatedRound = placeFirstPassBid(updatedRound, updatedMatch, playerId, payload);
       break;
     case 'PLACE_OVERRIDE_BID':
-      updatedRound = placeOverrideBid(updatedRound, playerId, payload);
+      {
+        const result = placeOverrideBid(updatedRound, updatedMatch, playerId, payload);
+        updatedRound = result.round;
+        updatedMatch = result.match;
+      }
       break;
-    case 'SELECT_TRUMP':
-      updatedRound = selectTrump(updatedRound, payload);
+    case 'SELECT_TRUMP': {
+      const result = selectTrump(updatedRound, updatedMatch, playerId, payload);
+      updatedRound = result.round;
+      updatedMatch = result.match;
       break;
+    }
     case 'PLAY_CARD': {
       const result = playTrickCard(updatedRound, updatedMatch, playerId, payload);
       updatedRound = result.round;
@@ -134,6 +141,69 @@ export function applyAction(match, playerId, action = {}) {
       break;
     default:
       return { match };
+  }
+
+  // Second-pass deal: give 4 more cards to each player, then advance phase.
+  if (updatedRound.phase === 'second-pass-deal') {
+    const seatOrder = [
+      (updatedRound.dealerIndex + 1) % updatedMatch.players.length,
+      (updatedRound.dealerIndex + 2) % updatedMatch.players.length,
+      (updatedRound.dealerIndex + 3) % updatedMatch.players.length,
+      updatedRound.dealerIndex,
+    ];
+    const playersBySeat = seatOrder
+      .map((seat) => updatedMatch.players.find((p) => p.seatIndex === seat))
+      .filter(Boolean);
+    const cardsPerPlayer = 4;
+    const totalToDeal = playersBySeat.length * cardsPerPlayer;
+    const deck = updatedRound.deck || [];
+    const cardsToDeal = deck.slice(0, totalToDeal);
+    const remainingDeck = deck.slice(totalToDeal);
+
+    const updatedPlayersById = new Map();
+    playersBySeat.forEach((player, idx) => {
+      const start = idx * cardsPerPlayer;
+      const additions = cardsToDeal.slice(start, start + cardsPerPlayer);
+      updatedPlayersById.set(player.id, { ...player, hand: [...(player.hand || []), ...additions] });
+    });
+
+    const remappedPlayers = updatedMatch.players.map((p) => updatedPlayersById.get(p.id) || p);
+    updatedMatch = { ...updatedMatch, players: remappedPlayers };
+
+    // Determine next phase: optional 250 bidding if needed, otherwise move to tricks with hidden trump.
+    const nextRound =
+      updatedRound.bidding && updatedRound.bidding.highestBid != null && updatedRound.bidding.highestBid < 250
+        ? (() => {
+            const bidderId = updatedRound.bidding.bidderId;
+            const optionalOrder = Array.from({ length: updatedMatch.players.length }, (_, idx) => {
+              const seat = (updatedRound.startingPlayerIndex + idx) % updatedMatch.players.length;
+              return updatedMatch.players.find((p) => p.seatIndex === seat);
+            })
+              .filter(Boolean)
+              .filter((p) => p.id !== bidderId)
+              .map((p) => p.id);
+
+            return {
+              ...updatedRound,
+              deck: remainingDeck,
+              phase: 'second-pass-bidding',
+              bidding: {
+                ...(updatedRound.bidding || {}),
+                optionalPhase: 'optional-250',
+                optionalOrder,
+                optionalTurnIndex: 0,
+                optionalCurrentTurnPlayerId: optionalOrder[0] || null,
+                optionalPassedPlayerIds: [],
+              },
+            };
+          })()
+        : {
+            ...updatedRound,
+            deck: remainingDeck,
+            phase: 'tricks-hidden-trump',
+          };
+
+    updatedRound = nextRound;
   }
 
   // Resolve trick when all players have played in the current trick.
