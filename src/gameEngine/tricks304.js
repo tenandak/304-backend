@@ -20,9 +20,62 @@ export function startTrick(round) {
   return ensureTrick(round);
 }
 
+export function getPlayableCards(round, match, playerId) {
+  const roundWithTrick = ensureTrick(round);
+  const trick = roundWithTrick.tricks[roundWithTrick.trickIndex];
+
+  const player = (match.players || []).find((p) => p.id === playerId);
+  if (!player) {
+    throw new Error('Player not found');
+  }
+
+  const hand = player.hand || [];
+  const hiddenTrump =
+    round.trump?.card?.id && round.trump?.card?.suit
+      ? round.trump.card
+      : round.trump?.hiddenCardId && round.trump?.suit
+        ? { id: round.trump.hiddenCardId, suit: round.trump.suit }
+        : null;
+  const isBidder = round.bidding?.bidderId && round.bidding.bidderId === playerId;
+  const available = isBidder && hiddenTrump ? [...hand, hiddenTrump] : hand;
+  // Guard against duplicate ids in available.
+  const seenIds = new Set();
+  available.forEach((c) => {
+    if (seenIds.has(c.id)) {
+      throw new Error('Card appears more than once in available set');
+    }
+    seenIds.add(c.id);
+  });
+  const ledSuit = trick.ledSuit || null;
+  const hasLedSuit = ledSuit ? available.some((c) => c.suit === ledSuit) : false;
+
+  const trumpRevealed = !!round.trump?.revealed;
+  let playableCardIds = [];
+  let faceDownPlayableCardIds = [];
+
+  if (!ledSuit) {
+    playableCardIds = available.map((c) => c.id);
+    faceDownPlayableCardIds = trumpRevealed ? [] : available.map((c) => c.id);
+  } else if (hasLedSuit) {
+    playableCardIds = available.filter((c) => c.suit === ledSuit).map((c) => c.id);
+    faceDownPlayableCardIds = [];
+  } else {
+    // No led suit: if trump hidden, must play face-down; otherwise any card face-up.
+    playableCardIds = trumpRevealed ? available.map((c) => c.id) : [];
+    faceDownPlayableCardIds = trumpRevealed ? [] : available.map((c) => c.id);
+  }
+
+  return { playableCardIds, faceDownPlayableCardIds };
+}
+
 export function playCard(round, match, playerId, { cardId, faceDown = false, isGuess = false } = {}) {
   const roundWithTrick = ensureTrick(round);
   const trick = roundWithTrick.tricks[roundWithTrick.trickIndex];
+
+  // Guard: trick cannot exceed player count.
+  if (trick.cards && trick.cards.length >= match.players.length) {
+    throw new Error('Trick is already full');
+  }
 
   const playerIndex = match.players.findIndex((p) => p.id === playerId);
   if (playerIndex === -1) {
@@ -41,14 +94,24 @@ export function playCard(round, match, playerId, { cardId, faceDown = false, isG
   }
 
   const player = match.players[playerIndex];
-  const card = player.hand.find((c) => c.id === cardId);
+  const hiddenTrumpCard =
+    round.trump?.card && round.trump.card.id ? round.trump.card : null;
+  const isBidder = round.bidding?.bidderId && round.bidding.bidderId === playerId;
+  const availableCards = isBidder && hiddenTrumpCard ? [...player.hand, hiddenTrumpCard] : player.hand;
+  // Ensure no duplicate ids.
+  const seenIds = new Set();
+  availableCards.forEach((c) => {
+    if (seenIds.has(c.id)) {
+      throw new Error('Card appears more than once in available set');
+    }
+    seenIds.add(c.id);
+  });
+  const card = availableCards.find((c) => c.id === cardId);
   if (!card) {
     throw new Error('Card not in hand');
   }
 
-  const hasLedSuit = trick.ledSuit
-    ? player.hand.some((c) => c.suit === trick.ledSuit)
-    : false;
+  const hasLedSuit = trick.ledSuit ? availableCards.some((c) => c.suit === trick.ledSuit) : false;
 
   if (trick.ledSuit && hasLedSuit && card.suit !== trick.ledSuit) {
     throw new Error('Player must follow suit');
@@ -56,6 +119,9 @@ export function playCard(round, match, playerId, { cardId, faceDown = false, isG
 
   if (trick.ledSuit && hasLedSuit && faceDown) {
     throw new Error('Cannot play face-down when able to follow suit');
+  }
+  if (trick.ledSuit && !hasLedSuit && !round.trump?.revealed && !faceDown) {
+    throw new Error('Must play face-down when void in led suit and trump hidden');
   }
 
   const updatedLedSuit = trick.ledSuit || (faceDown ? null : card.suit);
@@ -68,11 +134,19 @@ export function playCard(round, match, playerId, { cardId, faceDown = false, isG
   const updatedTricks = [...roundWithTrick.tricks];
   updatedTricks[roundWithTrick.trickIndex] = updatedTrick;
 
+  const isHiddenTrump = hiddenTrumpCard && hiddenTrumpCard.id === cardId;
   const updatedPlayer = { ...player, hand: player.hand.filter((c) => c.id !== cardId) };
+  if (player.hand.length !== updatedPlayer.hand.length + 1 && !isHiddenTrump) {
+    throw new Error('Hand size inconsistency after play');
+  }
   const updatedPlayers = match.players.map((p) => (p.id === playerId ? updatedPlayer : p));
 
+  const updatedTrump = isHiddenTrump
+    ? { ...(round.trump || {}), card: null, hiddenCardId: null, revealed: true }
+    : round.trump;
+
   return {
-    round: { ...roundWithTrick, tricks: updatedTricks },
+    round: { ...roundWithTrick, tricks: updatedTricks, trump: updatedTrump },
     match: { ...match, players: updatedPlayers },
   };
 }

@@ -1,3 +1,5 @@
+import { getPlayableCards } from './tricks304.js';
+
 export function sanitizeMatchForClient(match) {
   const cloned = JSON.parse(JSON.stringify(match));
 
@@ -144,6 +146,66 @@ export function sanitizeMatchForClient(match) {
     delete round.optionalBiddingOptions;
   }
 
+  if (round.phase && round.phase.startsWith('tricks')) {
+    if (Array.isArray(round.tricks)) {
+      const currentTrick = round.tricks?.[round.trickIndex] || { cards: [], ledSuit: null };
+      const cardsPlayed = currentTrick.cards?.length || 0;
+      const players = cloned.players || [];
+      const expectedSeat = players.length
+        ? (round.startingPlayerIndex + cardsPlayed) % players.length
+        : null;
+      const currentPlayer = expectedSeat != null
+        ? players.find((p) => p.seatIndex === expectedSeat) || null
+        : null;
+      const currentTurnPlayerId = currentPlayer ? currentPlayer.id : null;
+
+      const allowedActionsByPlayerId = {};
+      const playableCardIdsByPlayerId = {};
+      const faceDownPlayableCardIdsByPlayerId = {};
+
+      players.forEach((p) => {
+        allowedActionsByPlayerId[p.id] = [];
+        playableCardIdsByPlayerId[p.id] = [];
+        faceDownPlayableCardIdsByPlayerId[p.id] = [];
+      });
+
+      if (currentTurnPlayerId) {
+        players.forEach((p) => {
+          const { playableCardIds, faceDownPlayableCardIds } = getPlayableCards(
+            round,
+            { ...cloned, players },
+            p.id,
+          );
+          playableCardIdsByPlayerId[p.id] = playableCardIds;
+          faceDownPlayableCardIdsByPlayerId[p.id] = faceDownPlayableCardIds;
+        });
+
+        const currentPlayable = playableCardIdsByPlayerId[currentTurnPlayerId] || [];
+        const currentFaceDown = faceDownPlayableCardIdsByPlayerId[currentTurnPlayerId] || [];
+        const actions = [];
+        if (currentPlayable.length > 0) actions.push('playCard');
+        if (currentFaceDown.length > 0) {
+          actions.push('playCardFaceDown', 'playGuessFaceDown');
+        }
+        const isBidderTurn =
+          round.bidding?.bidderId && round.bidding.bidderId === currentTurnPlayerId;
+        if (isBidderTurn && round.trump?.revealed === false) {
+          actions.push('openTrump');
+        }
+        allowedActionsByPlayerId[currentTurnPlayerId] = actions;
+      }
+
+      round.trickOptions = {
+        currentTurnPlayerId,
+        allowedActionsByPlayerId,
+        playableCardIdsByPlayerId,
+        faceDownPlayableCardIdsByPlayerId,
+        trumpRevealed: !!round.trump?.revealed,
+        ledSuit: currentTrick.ledSuit ?? null,
+      };
+    }
+  }
+
   if (round.trump) {
     if (round.trump.card) {
       const cardId = round.trump.card.id || null;
@@ -159,7 +221,7 @@ export function sanitizeMatchForClient(match) {
       if (!trick || !Array.isArray(trick.cards)) return trick;
       const cards = trick.cards.map((entry) => {
         if (entry && entry.faceDown) {
-          return { ...entry, card: { hidden: true } };
+          return { ...entry, card: { ...(entry.card || {}), hidden: true } };
         }
         return entry;
       });

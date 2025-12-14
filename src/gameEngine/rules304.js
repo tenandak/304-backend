@@ -137,6 +137,26 @@ export function applyAction(match, playerId, action = {}) {
       break;
     }
     case 'OPEN_TRUMP':
+      if (updatedRound.phase !== 'tricks-hidden-trump') {
+        throw new Error('Trump cannot be opened in this phase');
+      }
+      if (updatedRound.trump?.revealed) {
+        throw new Error('Trump is already revealed');
+      }
+      if (!updatedRound.bidding || updatedRound.bidding.bidderId !== playerId) {
+        throw new Error('Only the bidder can open trump');
+      }
+      // Only the current turn player may open.
+      {
+        const tricks = updatedRound.tricks || [];
+        const currentTrick = tricks[updatedRound.trickIndex] || { cards: [], ledSuit: null };
+        const cardsPlayed = currentTrick.cards?.length || 0;
+        const expectedSeat = (updatedRound.startingPlayerIndex + cardsPlayed) % updatedMatch.players.length;
+        const currentPlayer = updatedMatch.players.find((p) => p.seatIndex === expectedSeat);
+        if (!currentPlayer || currentPlayer.id !== playerId) {
+          throw new Error('Not your turn to open trump');
+        }
+      }
       updatedRound = openTrump(updatedRound);
       break;
     default:
