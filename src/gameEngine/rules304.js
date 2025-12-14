@@ -163,6 +163,11 @@ export function applyAction(match, playerId, action = {}) {
       return { match };
   }
 
+  // If trump has been revealed, move into the open-trump trick phase.
+  if (updatedRound.trump?.revealed && updatedRound.phase === 'tricks-hidden-trump') {
+    updatedRound = { ...updatedRound, phase: 'tricks-open-trump' };
+  }
+
   // Second-pass deal: give 4 more cards to each player, then advance phase.
   if (updatedRound.phase === 'second-pass-deal') {
     const seatOrder = [
@@ -217,6 +222,11 @@ export function applyAction(match, playerId, action = {}) {
     const result = resolveTrick(updatedRound, updatedMatch);
     updatedRound = result.round;
     updatedMatch = result.match;
+  }
+
+  // If trump has been revealed (by play or resolve), move into open-trump trick phase.
+  if (updatedRound.trump?.revealed && updatedRound.phase === 'tricks-hidden-trump') {
+    updatedRound = { ...updatedRound, phase: 'tricks-open-trump' };
   }
 
   // Advance scoring and dealer when round is over.

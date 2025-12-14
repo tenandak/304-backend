@@ -157,11 +157,21 @@ export function resolveTrick(round, match) {
   const trumpSuit = round.trump?.suit || null;
 
   let trumpRevealed = round.trump?.revealed || false;
+  let updatedPlayersForTrump = match.players;
+  let trumpCardReturned = false;
 
   const processedCards = trick.cards.map((entry) => {
     if (entry.faceDown && entry.isGuess && !trumpRevealed) {
       if (trumpSuit && entry.card.suit === trumpSuit) {
         trumpRevealed = true;
+        // Return hidden trump card to bidder's hand when revealed by guess.
+        if (round.trump?.card && round.bidding?.bidderId) {
+          updatedPlayersForTrump = match.players.map((p) => {
+            if (p.id !== round.bidding.bidderId) return p;
+            return { ...p, hand: [...(p.hand || []), round.trump.card] };
+          });
+          trumpCardReturned = true;
+        }
         return { ...entry, faceDown: false, isGuess: false };
       }
       return entry;
@@ -169,7 +179,9 @@ export function resolveTrick(round, match) {
     return entry;
   });
 
-  const updatedTrump = { ...round.trump, revealed: round.trump?.revealed || trumpRevealed };
+  const updatedTrump = trumpCardReturned
+    ? { ...(round.trump || {}), revealed: true, card: null, hiddenCardId: null }
+    : { ...round.trump, revealed: round.trump?.revealed || trumpRevealed };
 
   const determineGroup = (entry) => {
     if (!entry.faceDown && trumpSuit && entry.card.suit === trumpSuit) return 1;
@@ -218,7 +230,8 @@ export function resolveTrick(round, match) {
   const winningPlayer = match.players.find((p) => p.id === winningPlayerId) || null;
   const winningTeam = winningPlayerId ? getTeamForPlayer(match, winningPlayerId) : null;
 
-  const updatedPlayers = match.players.map((player) => {
+  const updatedPlayersBase = updatedPlayersForTrump || match.players;
+  const updatedPlayers = updatedPlayersBase.map((player) => {
     if (player.id !== winningPlayerId) return player;
     return {
       ...player,
