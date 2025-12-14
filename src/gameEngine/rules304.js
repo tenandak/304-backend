@@ -234,6 +234,9 @@ export function applyAction(match, playerId, action = {}) {
     updatedMatch = applyRoundScoring(updatedMatch, updatedRound);
     if (!updatedMatch.winnerTeamId) {
       updatedMatch.dealerIndex = (updatedMatch.dealerIndex + 1) % updatedMatch.players.length;
+      const nextMatch = startRound(updatedMatch);
+      updatedMatch = nextMatch;
+      updatedRound = nextMatch.currentRound;
     }
   }
 
