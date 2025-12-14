@@ -55,7 +55,7 @@ export function getPlayableCards(round, match, playerId) {
 
   if (!ledSuit) {
     playableCardIds = available.map((c) => c.id);
-    faceDownPlayableCardIds = trumpRevealed ? [] : available.map((c) => c.id);
+    faceDownPlayableCardIds = []; // leader must play face-up to set led suit
   } else if (hasLedSuit) {
     playableCardIds = available.filter((c) => c.suit === ledSuit).map((c) => c.id);
     faceDownPlayableCardIds = [];
@@ -89,6 +89,9 @@ export function playCard(round, match, playerId, { cardId, faceDown = false, isG
     throw new Error("Not this player's turn");
   }
 
+  if (!trick.ledSuit && (faceDown || isGuess)) {
+    throw new Error('Cannot lead a trick face-down');
+  }
   if ((faceDown || isGuess) && round.trump.revealed) {
     throw new Error('Cannot play face-down or guess after trump is revealed');
   }
