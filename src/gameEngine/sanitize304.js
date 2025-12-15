@@ -135,15 +135,32 @@ export function sanitizeMatchForClient(match) {
     const bidding = round.bidding || {};
     const highestBidderId = bidding.bidderId || null;
     const passed = bidding.secondPassPassedPlayerIds || [];
+    const teamIdByPlayerId = {};
+    for (const t of cloned.teams || []) {
+      for (const pid of t.playerIds || []) {
+        teamIdByPlayerId[pid] = t.id;
+      }
+    }
+    const highestTeamId = highestBidderId ? teamIdByPlayerId[highestBidderId] : null;
 
     const allowedActionsByPlayerId = {};
+    const allowedBidValuesByPlayerId = {};
+    const allowedValues = [250, 260, 270, 280, 290, 300, 304];
+
     cloned.players.forEach((p) => {
-      if (p.id === highestBidderId) {
+      if (p.id === highestBidderId || passed.includes(p.id)) {
         allowedActionsByPlayerId[p.id] = [];
-      } else if (passed.includes(p.id)) {
-        allowedActionsByPlayerId[p.id] = [];
+        allowedBidValuesByPlayerId[p.id] = [];
       } else {
-        allowedActionsByPlayerId[p.id] = ['bid250', 'pass'];
+        allowedActionsByPlayerId[p.id] = ['bid', 'pass'];
+        const sameTeam = highestTeamId && teamIdByPlayerId[p.id] === highestTeamId;
+        const requiredIncrement =
+          bidding.highestBid != null && bidding.highestBid > 0 ? (sameTeam ? 20 : 10) : 0;
+        const minValue =
+          bidding.highestBid != null && bidding.highestBid > 0
+            ? bidding.highestBid + requiredIncrement
+            : 250;
+        allowedBidValuesByPlayerId[p.id] = allowedValues.filter((v) => v >= minValue);
       }
     });
 
@@ -153,6 +170,7 @@ export function sanitizeMatchForClient(match) {
       highestBidderId,
       passedPlayerIds: passed,
       allowedActionsByPlayerId,
+      allowedBidValuesByPlayerId,
     };
 
     delete round.optionalBiddingOptions;

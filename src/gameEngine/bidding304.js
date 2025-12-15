@@ -1,8 +1,10 @@
 import { getTeamForPlayer } from './gameState.js';
 
-const FIRST_PASS_ALLOWED = [70, 80, 90, 100, 110, 120, 130, 140, 150, 
-  160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 304];
-const OVERRIDE_ALLOWED = [250];
+const FIRST_PASS_ALLOWED = [
+  70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260,
+  270, 280, 290, 300, 304,
+];
+const SECOND_PASS_ALLOWED = [250, 260, 270, 280, 290, 300, 304];
 
 export function placeFirstPassBid(round, match, playerId, payload = {}) {
   if (round.phase !== 'first-pass-bidding') {
@@ -221,6 +223,11 @@ export function placeSecondPassBid(round, match, playerId, payload = {}) {
 
   const bidding = round.bidding || {};
   const highestBidderId = bidding.bidderId || null;
+  const currentHighest = bidding.highestBid || 0;
+  const maxOverride = SECOND_PASS_ALLOWED[SECOND_PASS_ALLOWED.length - 1];
+  const playerTeam = getTeamForPlayer(match, playerId);
+  const highestBidder = highestBidderId ? match.players.find((p) => p.id === highestBidderId) : null;
+  const highestTeam = highestBidder ? getTeamForPlayer(match, highestBidderId) : null;
 
   if (playerId === highestBidderId) {
     throw new Error('Highest bidder cannot override or pass in second-pass bidding');
@@ -228,7 +235,14 @@ export function placeSecondPassBid(round, match, playerId, payload = {}) {
 
   const { type, value } = payload;
   if (type === 'bid') {
-    if (value !== 250) throw new Error('Invalid override bid value');
+    if (!SECOND_PASS_ALLOWED.includes(value)) throw new Error('Invalid override bid value');
+    let requiredIncrement = currentHighest > 0 ? 10 : 0;
+    if (currentHighest > 0 && highestTeam && playerTeam && highestTeam.id === playerTeam.id) {
+      requiredIncrement = 20;
+    }
+    if (currentHighest > 0 && value < currentHighest + requiredIncrement) {
+      throw new Error('Override bid must be higher than current bid');
+    }
   } else if (type === 'pass') {
     // ok
   } else {
@@ -247,18 +261,20 @@ export function placeSecondPassBid(round, match, playerId, payload = {}) {
       });
     }
 
+    const biddingUpdate = {
+      ...(round.bidding || {}),
+      highestBid: value,
+      bidderId: playerId,
+      finalBidValue: value,
+      secondPassPassedPlayerIds: [],
+    };
+
+    const finalized = value >= maxOverride;
     const updatedRound = {
       ...round,
       trump: { suit: null, card: null, revealed: false },
-      phase: 'trump-selection',
-      bidding: {
-        ...(round.bidding || {}),
-        highestBid: 250,
-        bidderId: playerId,
-        finalBidValue: 250,
-        phase: 'done',
-        secondPassPassedPlayerIds: [],
-      },
+      phase: finalized ? 'trump-selection' : 'second-pass-bidding',
+      bidding: finalized ? { ...biddingUpdate, phase: 'done' } : biddingUpdate,
     };
 
     const updatedMatch = { ...match, players: updatedPlayers };
