@@ -118,7 +118,8 @@ export function placeFirstPassBid(round, match, playerId, payload = {}) {
       hasBid: true,
       isOpenBidding: true,
       passesSinceLastBid: 0,
-      passedPlayerIdsSinceLastBid: [],
+      // Preserve any prior passes (e.g., partner caller treated as pass)
+      passedPlayerIdsSinceLastBid: [...(bidding.passedPlayerIdsSinceLastBid || [])],
     };
 
     // If 250 is placed, end immediately.

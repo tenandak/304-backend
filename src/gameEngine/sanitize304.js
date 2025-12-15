@@ -33,6 +33,10 @@ export function sanitizeMatchForClient(match) {
     const highestBidderId = bidding.bidderId || null;
     const highestBidder = cloned.players.find((p) => p.id === highestBidderId);
     const highestBidderTeamId = highestBidderId ? teamIdByPlayerId[highestBidderId] : null;
+    const alreadyPassedIds = new Set([
+      ...(bidding.passedPlayerIdsSinceLastBid || []),
+      ...(bidding.partnerCalled ? [bidding.partnerCallerId].filter(Boolean) : []),
+    ]);
 
     // Allowed bids per player
     const allowedBidValuesByPlayerId = {};
@@ -49,6 +53,10 @@ export function sanitizeMatchForClient(match) {
         }
       }
 
+      if (alreadyPassedIds.has(p.id)) {
+        allowedBidValuesByPlayerId[p.id] = [];
+        return;
+      }
       if (highestBidderId && p.id === highestBidderId) {
         allowed = [];
       } else if (highestBid != null) {
@@ -98,8 +106,11 @@ export function sanitizeMatchForClient(match) {
       (bidding.partnerCalled && bidding.partnerForcedId !== currentTurnPlayerId);
 
     const allowedActions = [];
-    // Bid action allowed if not the highest bidder; partner restrictions handled via allowed bids map.
-    if (hasBid ? (highestBidderId ? cloned.players.some((p) => p.id !== highestBidderId) : true) : true) {
+    // Bid action allowed if any player who hasn't passed and isn't highest can act.
+    const anyCanBid = hasBid
+      ? cloned.players.some((p) => p.id !== highestBidderId && !alreadyPassedIds.has(p.id))
+      : true;
+    if (anyCanBid) {
       allowedActions.push('bid');
     }
     if (canCallPartner) allowedActions.push('partner');
