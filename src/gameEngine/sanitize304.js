@@ -12,7 +12,8 @@ export function sanitizeMatchForClient(match) {
   // Provide explicit bidding options to the client.
   if (round.phase === 'first-pass-bidding') {
     const bidding = round.bidding || {};
-    const baseAllowed = [70, 80, 90, 100, 250];
+    const baseAllowed = [70, 80, 90, 100, 110, 120, 130, 140, 150, 
+      160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 304];
     const hasBid = bidding.hasBid === true;
 
     const teamIdByPlayerId = {};

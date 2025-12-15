@@ -1,6 +1,7 @@
 import { getTeamForPlayer } from './gameState.js';
 
-const FIRST_PASS_ALLOWED = [70, 80, 90, 100, 250];
+const FIRST_PASS_ALLOWED = [70, 80, 90, 100, 110, 120, 130, 140, 150, 
+  160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 304];
 const OVERRIDE_ALLOWED = [250];
 
 export function placeFirstPassBid(round, match, playerId, payload = {}) {
@@ -71,6 +72,9 @@ export function placeFirstPassBid(round, match, playerId, payload = {}) {
       partnerCallerId: playerId,
       partnerForcedId: partnerId,
       bids: [...bids, { playerId, type: 'partner' }],
+      // Calling partner counts as this player's pass for this round of bidding.
+      passedPlayerIdsSinceLastBid: [...(bidding.passedPlayerIdsSinceLastBid || []), playerId],
+      passesSinceLastBid: (bidding.passesSinceLastBid || 0) + 1,
     };
 
     // Force the partner to act next if they are in the order.
