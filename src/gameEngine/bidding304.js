@@ -124,19 +124,6 @@ export function placeFirstPassBid(round, match, playerId, payload = {}) {
       passedPlayerIdsSinceLastBid: [...(bidding.passedPlayerIdsSinceLastBid || [])],
     };
 
-    // If 250 is placed, end immediately.
-    if (value === 250) {
-      return {
-        ...round,
-        phase: 'trump-selection',
-        bidding: {
-          ...updatedBidding,
-          phase: 'done',
-          currentTurnPlayerId: null,
-        },
-      };
-    }
-
     const nextTurnIndex = (bidding.turnIndex + 1) % (order.length || 1);
     return {
       ...round,

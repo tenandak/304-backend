@@ -187,8 +187,8 @@ export function resolveTrick(round, match) {
     : { ...round.trump, revealed: round.trump?.revealed || trumpRevealed };
 
   const determineGroup = (entry) => {
-    if (!entry.faceDown && trumpSuit && entry.card.suit === trumpSuit) return 1;
-    if (!entry.faceDown && trick.ledSuit && entry.card.suit === trick.ledSuit) return 2;
+    if (trumpSuit && entry.card.suit === trumpSuit) return 1;
+    if (trick.ledSuit && entry.card.suit === trick.ledSuit) return 2;
     if (!entry.faceDown) return 3;
     return 4;
   };

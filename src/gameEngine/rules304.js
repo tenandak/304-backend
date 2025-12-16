@@ -197,7 +197,7 @@ export function applyAction(match, playerId, action = {}) {
 
     // Determine next phase: optional 250 bidding if needed, otherwise move to tricks with hidden trump.
     const nextRound =
-      updatedRound.bidding && updatedRound.bidding.highestBid != null && updatedRound.bidding.highestBid < 250
+      updatedRound.bidding && updatedRound.bidding.highestBid != null && updatedRound.bidding.highestBid < 304
         ? {
             ...updatedRound,
             deck: remainingDeck,
